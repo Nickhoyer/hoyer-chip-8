@@ -1,7 +1,13 @@
 {
-    "workbench.colorCustomizations": {
-        "activityBar.background": "#5D0C1E",
-        "titleBar.activeBackground": "#82112A",
-        "titleBar.activeForeground": "#FFFBFC"
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#5D0C1E",
+    "titleBar.activeBackground": "#82112A",
+    "titleBar.activeForeground": "#FFFBFC"
+  },
+  "workbench.editorAssociations": [
+    {
+      "viewType": "hexEditor.hexedit",
+      "filenamePattern": "*.c8"
     }
+  ]
 }
