@@ -7,6 +7,7 @@ pub struct Interpreter {
     pub stack_pointer: usize,
     pub sound_timer: u8,
     pub delay_timer: u8,
+    pub keypad: [bool; 16],
     pub video_output: [u64; 32],
 }
 
@@ -14,6 +15,7 @@ impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
             video_output: [0; 32],
+            keypad: [false; 16],
             memory: [0; 4096],
             registers: [0; 16],
             stack: [0; 16],

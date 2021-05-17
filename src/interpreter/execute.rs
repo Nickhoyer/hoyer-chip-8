@@ -1,3 +1,5 @@
+use rand::{thread_rng, Rng};
+
 use super::interpreter::Interpreter;
 impl Interpreter {
     /// 00E0 - CLS
@@ -161,75 +163,137 @@ impl Interpreter {
     /// Annn - LD I, addr
     ///
     /// Set I = nnn.
-    pub fn index_set_nnn(&mut self, nnn: u16) {}
+    pub fn index_set_nnn(&mut self, nnn: u16) {
+        self.index = nnn;
+    }
 
     /// Bnnn - JP V0, addr
     ///
     /// Jump to location nnn + V0.
-    pub fn jump_with_offset(&mut self, nnn: u16) {}
+    pub fn jump_with_offset(&mut self, nnn: u16) {
+        self.program_counter = self.registers[0] as u16 + nnn;
+    }
 
     /// Cxnn - RND Vx, byte
     ///
     /// Set Vx = random byte AND nn.
-    pub fn vx_set_rand_and_nn(&mut self, vx: usize, nn: u8) {}
+    pub fn vx_set_rand_and_nn(&mut self, vx: usize, nn: u8) {
+        self.registers[vx] = thread_rng().gen::<u8>() & nn;
+    }
 
     /// Dxyn - DRW Vx, Vy, nibble
     ///
     /// Display n-byte sprite starting at memory location I at (Vx, Vy), set Vf = collision.
-    pub fn display_sprite(&mut self, vx: usize, vy: usize, nn: u8) {}
+    pub fn display_sprite(&mut self, vx: usize, vy: usize, n: u8) {
+        let x = (self.registers[vx] % 64) as usize;
+        let y = (self.registers[vy] % 32) as usize;
+
+        for byte in 0..n {
+            let sprite = self.memory[(self.index + byte as u16) as usize];
+            for bit in 0..8 {
+                let color = (sprite >> (7 - bit)) & 1;
+                self.registers[0xf] |=
+                    color & self.memory[(y as u8 + byte) as usize * 64 + x + bit];
+                self.memory[(y as u8 + byte) as usize * 64 + x + bit] ^= color;
+            }
+        }
+    }
 
     /// Ex9E - SKP Vx
     ///
     /// Skip next instruction if key with the value of Vx is pressed.
-    pub fn skip_if_key(&mut self, vx: usize) {}
+    pub fn skip_if_key(&mut self, vx: usize) {
+        if self.keypad[self.registers[vx] as usize] {
+            self.program_counter += 2;
+        }
+    }
 
     /// ExA1 - SKNP Vx
     ///
     /// Skip next instruction if key with the value of Vx is not pressed.
-    pub fn skip_if_not_key(&mut self, vx: usize) {}
+    pub fn skip_if_not_key(&mut self, vx: usize) {
+        if !self.keypad[self.registers[vx] as usize] {
+            self.program_counter += 2;
+        }
+    }
 
     /// fx07 - LD Vx, DT
     ///
     /// Set Vx = delay timer value.
-    pub fn vx_set_delay_timer(&mut self, vx: usize) {}
+    pub fn vx_set_delay_timer(&mut self, vx: usize) {
+        self.registers[vx] = self.delay_timer;
+    }
 
     /// fx0A - LD Vx, K
     ///
     /// Wait for a key press, store the value of the key in Vx.
-    pub fn wait_for_key(&mut self, vx: usize) {}
+    pub fn wait_for_key(&mut self, vx: usize) {
+        let mut found_key = false;
+        for key in 0..16 {
+            if self.keypad[key] {
+                found_key = true;
+                self.registers[vx] = key as u8;
+            }
+        }
+        if !found_key {
+            self.program_counter -= 2;
+        }
+    }
 
     /// fx15 - LD DT, Vx
     ///
     /// Set delay timer = Vx.
-    pub fn delay_timer_set_vx(&mut self, vx: usize) {}
+    pub fn delay_timer_set_vx(&mut self, vx: usize) {
+        self.delay_timer = self.registers[vx];
+    }
 
     /// fx18 - LD ST, Vx
     ///
     /// Set sound timer = Vx.
-    pub fn sound_timer_set_vx(&mut self, vx: usize) {}
+    pub fn sound_timer_set_vx(&mut self, vx: usize) {
+        self.sound_timer = self.registers[vx];
+    }
 
     /// fx1E - ADD I, Vx
     ///
     /// Set I = I + Vx.
-    pub fn index_add_vx(&mut self, vx: usize) {}
+    pub fn index_add_vx(&mut self, vx: usize) {
+        self.index += self.registers[vx] as u16;
+    }
 
     /// fx29 - LD f, Vx
     ///
     /// Set I = location of sprite for digit Vx.
-    pub fn index_set_font(&mut self, vx: usize) {}
+    pub fn index_set_font(&mut self, vx: usize) {
+        // TODO
+    }
 
     /// fx33 - LD B, Vx
     ///
     /// Store BCD representation of Vx in memory locations I, I+1, and I+2.
-    pub fn index_set_decimal(&mut self, vx: usize) {}
+    pub fn index_set_decimal(&mut self, vx: usize) {
+        let mut value = self.registers[vx];
+        for i in 0..3 {
+            self.memory[self.index as usize + 2 - i] = value % 10;
+            value /= 10;
+        }
+    }
 
     /// fx55 - LD [I], Vx
     ///
     /// Store registers V0 through Vx in memory starting at location I.
-    pub fn write_memory(&mut self, vx: usize) {}
+    pub fn write_memory(&mut self, vx: usize) {
+        for i in 0..(vx + 1) {
+            self.memory[self.index as usize + i] = self.registers[i];
+        }
+    }
 
     /// fx65 - LD Vx, [I]
     ///
     /// Read registers V0 through Vx from memory starting at location I.
-    pub fn load_memory(&mut self, vx: usize) {}
+    pub fn load_memory(&mut self, vx: usize) {
+        for i in 0..(vx + 1) {
+            self.registers[i] = self.memory[self.index as usize + i];
+        }
+    }
 }
