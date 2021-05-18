@@ -71,7 +71,8 @@ impl Interpreter {
     ///
     /// Set Vx = Vx + nn.
     pub fn vx_add_nn(&mut self, vx: usize, nn: u8) {
-        self.registers[vx] += nn;
+        let sum = self.registers[vx] as u16 + nn as u16;
+        self.registers[vx] = (sum & 0xff) as u8;
     }
 
     /// 8xy0 - LD Vx, Vy
@@ -106,7 +107,7 @@ impl Interpreter {
     ///
     /// Set Vx = Vx + Vy, set Vf = carry.
     pub fn vx_add_vy(&mut self, vx: usize, vy: usize) {
-        let sum = (self.registers[vx] + self.registers[vy]) as u16;
+        let sum = self.registers[vx] as u16 + self.registers[vy] as u16;
         self.registers[0xf] = if sum > 255 { 1 } else { 0 };
         self.registers[vx] = (sum & 0xff) as u8;
     }
@@ -120,7 +121,7 @@ impl Interpreter {
         } else {
             0
         };
-        self.registers[vx] -= self.registers[vy];
+        self.registers[vx] = self.registers[vx].wrapping_sub(self.registers[vy]);
     }
 
     /// 8xy6 - SHR Vx {, Vy}
@@ -140,7 +141,7 @@ impl Interpreter {
         } else {
             0
         };
-        self.registers[vx] = self.registers[vy] - self.registers[vx];
+        self.registers[vx] = self.registers[vy].wrapping_sub(self.registers[vx]);
     }
 
     /// 8xyE - SHL Vx {, Vy}
@@ -185,16 +186,20 @@ impl Interpreter {
     ///
     /// Display n-byte sprite starting at memory location I at (Vx, Vy), set Vf = collision.
     pub fn display_sprite(&mut self, vx: usize, vy: usize, n: u8) {
-        let x = (self.registers[vx] % 64) as usize;
-        let y = (self.registers[vy] % 32) as usize;
+        let x = self.registers[vx] % 64;
+        let y = self.registers[vy] % 32;
 
         for byte in 0..n {
             let sprite = self.memory[(self.index + byte as u16) as usize];
             for bit in 0..8 {
-                let color = (sprite >> (7 - bit)) & 1;
-                self.registers[0xf] |=
-                    color & self.memory[(y as u8 + byte) as usize * 64 + x + bit];
-                self.memory[(y as u8 + byte) as usize * 64 + x + bit] ^= color;
+                let color = (sprite & (0x80 >> bit)) as u64;
+                self.registers[0xf] |= ((self.video_output[(y as usize + byte as usize) % 32]
+                    & (color << x % 64))
+                    >> x % 64) as u8
+                    >> 7 - bit;
+
+                self.video_output[(y as usize + byte as usize) % 32] ^=
+                    (color >> 7 - bit) << (x + bit) % 64;
             }
         }
     }
@@ -265,7 +270,7 @@ impl Interpreter {
     ///
     /// Set I = location of sprite for digit Vx.
     pub fn index_set_font(&mut self, vx: usize) {
-        // TODO
+        self.index = 0x50 + (5 * self.registers[vx] as u16);
     }
 
     /// fx33 - LD B, Vx
