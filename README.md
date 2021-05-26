@@ -1,6 +1,6 @@
 # Hoyer's CHIP-8 Interpreter
 
-A simple interpreter for chip-8 programs.
+A simple rust interpreter for chip-8 programs.
 
 ### Excellent resources that helped me learn
 
